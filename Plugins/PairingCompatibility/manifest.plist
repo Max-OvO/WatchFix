@@ -20,7 +20,6 @@
 			<array>
 				<string>SpringBoard</string>
 				<string>nanoregistryd</string>
-				<string>identityservicesd</string>
 				<string>bluetoothd</string>
 				<string>Bridge</string>
 				<string>companionproxyd</string>
@@ -28,7 +27,6 @@
 				<string>pairedsyncd</string>
 				<string>nanoregistrylaunchd</string>
 				<string>appconduitd</string>
-				<string>imagent</string>
 				<string>nptocompaniond</string>
 				<string>passd</string>
 			</array>
@@ -40,7 +38,6 @@
 			<string>wcd</string>
 			<string>SpringBoard</string>
 			<string>nanoregistryd</string>
-			<string>identityservicesd</string>
 			<string>bluetoothd</string>
 			<string>Bridge</string>
 			<string>companionproxyd</string>
@@ -48,7 +45,6 @@
 			<string>pairedsyncd</string>
 			<string>nanoregistrylaunchd</string>
 			<string>appconduitd</string>
-			<string>imagent</string>
 			<string>nptocompaniond</string>
 			<string>passd</string>
 		</array>

@@ -482,7 +482,14 @@ void InitBLEPairingFixHooks(void) {
             Log(@"Initializing PairingCompatibility...");
             InitNanoRegisterPairingCompatibilityHooks();
         }
-        if (![processName isEqualToString:@"SpringBoard"] && kIDSHooksEnabled) {
+        // Only inject IDS hooks into Watch-related daemons. Previously this was
+        // injected into every non-SpringBoard process (including identityservicesd
+        // and imagent), which caused those daemons to force all IDSAccount instances
+        // as active/enabled -- breaking normal network connectivity for Safari and
+        // other apps that depend on IDS for authentication/push services.
+        NSArray *idsDaemons = @[@"nanoregistryd", @"companionproxyd", @"terminusd",
+            @"pairedsyncd", @"nanoregistrylaunchd", @"appconduitd", @"nptocompaniond"];
+        if ([idsDaemons containsObject:processName] && kIDSHooksEnabled) {
             Log(@"Initializing IdServicePairingCompatibility...");
             InitIdServicePairingCompatibilityHooks();
         }

@@ -636,7 +636,7 @@ static BOOL EnsureDirectoryAtURL(NSURL *url, NSError **error) {
         *error = BridgeError(32, [NSString stringWithFormat:@"Expected directory at path '%@' but found a file", path]);
         return NO;
     }
-    return RunRootCommand(@"/bin/mkdir", @[@"-p", path], 32, @"Unable to create directory", error);
+    return RunRootCommand(@"/usr/bin/mkdir", @[@"-p", path], 32, @"Unable to create directory", error);
 }
 
 static BOOL WriteGeneratedFilterPlist(NSURL *destinationURL, NSDictionary *pluginInfo, NSError **error) {
@@ -971,7 +971,7 @@ static BOOL SetPluginLoggingEnabledState(BOOL enabled, NSError **error) {
         // injected into daemons that run under other (non-root) uids. Make the
         // directory world-writable with the sticky bit (like /tmp) so every such
         // process can create and append to its own per-process log file.
-        return RunRootCommand(@"/bin/chmod", @[@"1777", GetLogPath()], 50, @"Unable to set plugin log directory permissions", error);
+        return RunRootCommand(@"/usr/bin/chmod", @[@"1777", GetLogPath()], 50, @"Unable to set plugin log directory permissions", error);
     }
 
     if (!DirectoryExistsAtPath(GetLogPath())) {
