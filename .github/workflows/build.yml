@@ -1,0 +1,96 @@
+name: Build CI
+
+on:
+  push:
+    paths:
+      - ".github/workflows/**"
+      - "Plugins/**"
+      - "Preferences/**"
+      - "Utils/**"
+      - "scripts/**"
+      - "App/**"
+      - "layout/**"
+      - "Makefile"
+      - "control"
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@main
+
+      - name: Checkout roothide/theos
+        id: checkout_theos
+        uses: actions/checkout@main
+        with:
+          repository: roothide/theos
+          ref: master
+          submodules: recursive
+          path: theos
+
+      - name: Checkout theos/sdks
+        id: checkout_sdks
+        if: steps.checkout_theos.outcome == 'success'
+        uses: actions/checkout@main
+        with:
+          repository: theos/sdks
+          sparse-checkout: iPhoneOS16.5.sdk
+          path: theos/sdks
+      
+      - name: Install Dependencies
+        id: install_deps
+        if: steps.checkout_sdks.outcome == 'success'
+        run: |
+          brew install make ldid
+
+      - name: Build Rootless Package
+        id: build_rootless
+        if: steps.install_deps.outcome == 'success'
+        env:
+          THEOS: theos
+        run: |
+          gmake clean package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
+
+      - name: Upload a Rootless Build Artifact
+        if: steps.build_rootless.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: rootless-package
+          path: packages/rootless/*.deb
+          retention-days: 15
+          archive: false
+  
+      - name: Build Roothide Package
+        id: build_roothide
+        if: steps.install_deps.outcome == 'success'
+        env:
+          THEOS: theos
+        run: |
+          gmake clean package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide
+      
+      - name: Upload a Roothide Build Artifact
+        if: steps.build_roothide.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: roothide-package
+          path: packages/roothide/*.deb
+          retention-days: 15
+          archive: false
+
+      - name: Create GitHub Release
+        if: steps.build_roothide.outcome == 'success' && startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            packages/rootless/*.deb
+            packages/roothide/*.deb

@@ -1,0 +1,7 @@
+PLUGIN_NAME = WatchAppSupport
+WATCHFIX_PLUGIN_SHORT_VERSION = 1.0.1
+WATCHFIX_PLUGIN_VERSION = 1.0.1
+WATCHFIX_PLUGIN_RESOURCE_DIRS = Resources
+WATCHFIX_PLUGIN_PRIVATE_FRAMEWORKS = BridgePreferences NanoRegistry PBBridgeSupport AppSupport
+
+include ../plugin.mk

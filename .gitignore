@@ -1,0 +1,11 @@
+.theos/
+packages/
+.DS_Store
+doc/
+memory/
+AGENTS.md
+Utils/.stamp
+__pycache__/
+*.pyc
+*.pyo
+.github/copilot-instructions.md
