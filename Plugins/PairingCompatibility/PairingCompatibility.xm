@@ -254,6 +254,49 @@ static void LoadPairingCompatibilityConfiguration(void) {
 
 %end
 
+// Helper: determine if an IDS service name is Watch/Nano-related.
+// Only these services should have their compatibility versions and account
+// states forced; other services (iMessage, FaceTime, push, etc.) must keep
+// their original behaviour to avoid breaking browser/network connectivity.
+static BOOL isWatchRelatedServiceName(NSString *name) {
+    if (!name || name.length == 0) return NO;
+    static NSArray *watchKeywords = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        watchKeywords = @[@"alloy", @"nano", @"companion", @"bridge",
+            @"watch", @"paired", @"setup", @"sharingd"];
+    });
+    NSString *lower = [name lowercaseString];
+    for (NSString *keyword in watchKeywords) {
+        if ([lower containsString:keyword]) return YES;
+    }
+    return NO;
+}
+
+// Helper: check if an IDSAccount belongs to a Watch-related service.
+static BOOL isWatchRelatedIDSAccount(id account) {
+    @try {
+        // Try to get service name from the account's service object
+        id service = [account valueForKey:@"_service"];
+        if (service) {
+            NSString *name = nil;
+            if ([service respondsToSelector:@selector(name)]) {
+                name = [service performSelector:@selector(name)];
+            }
+            if (!name) name = [service valueForKey:@"_name"];
+            if (!name) name = [service valueForKey:@"_identifier"];
+            if (name) return isWatchRelatedServiceName(name);
+        }
+        // Fallback: try account's own service property
+        NSString *serviceName = [account valueForKey:@"_serviceName"];
+        if (serviceName) return isWatchRelatedServiceName(serviceName);
+    } @catch (NSException *e) {
+        // If we cannot determine, do NOT force — safer for network stability
+        Log(@"isWatchRelatedIDSAccount: exception %@, not forcing", e);
+    }
+    return NO;
+}
+
 %group IdServicePairingFix
 
 %hook IDSUTunControlMessage_Hello
@@ -278,12 +321,14 @@ static void LoadPairingCompatibilityConfiguration(void) {
 
 - (IDSServiceProperties *)initWithServiceDictionary:(NSDictionary *)serviceDictionary {
     Log(@"Original IDSService initWithServiceDictionary: called with dictionary: %@", serviceDictionary);
-    NSMutableDictionary *modifiedDictionary = [serviceDictionary mutableCopy] ?: [NSMutableDictionary dictionary];
-    if (modifiedDictionary[@"MinCompatibilityVersion"]) {
+    NSString *serviceName = serviceDictionary[@"ServiceName"] ?: serviceDictionary[@"Name"] ?: @"";
+    if (isWatchRelatedServiceName(serviceName) && serviceDictionary[@"MinCompatibilityVersion"]) {
+        NSMutableDictionary *modifiedDictionary = [serviceDictionary mutableCopy];
         modifiedDictionary[@"MinCompatibilityVersion"] = @(kMinCompatibilityVersion);
+        Log(@"Modified Watch-related service dictionary for compatibility: %@", modifiedDictionary);
+        return %orig(modifiedDictionary);
     }
-    Log(@"Modified service dictionary for compatibility: %@", modifiedDictionary);
-    return %orig(modifiedDictionary);
+    return %orig(serviceDictionary);
 }
 
 %end
@@ -291,9 +336,16 @@ static void LoadPairingCompatibilityConfiguration(void) {
 %hook IDSServiceProperties
 
 - (long long)minCompatibilityVersion {
-    Log(@"Original IDSServiceProperties minCompatibilityVersion called");
     long long originalVersion = %orig;
-    Log(@"Original service min compatibility version: %lld", originalVersion);
+    // Only override for Watch-related services; non-Watch services keep their
+    // original value so browser/push networking is not disrupted.
+    NSString *name = nil;
+    @try { name = [self valueForKey:@"_name"]; } @catch (NSException *e) {}
+    if (!name) @try { name = [self valueForKey:@"_serviceName"]; } @catch (NSException *e) {}
+    if (name && !isWatchRelatedServiceName(name)) {
+        return originalVersion;
+    }
+    Log(@"IDSServiceProperties minCompatibilityVersion: %lld -> %lld (Watch service)", originalVersion, kMinCompatibilityVersion);
     return kMinCompatibilityVersion;
 }
 
@@ -302,24 +354,30 @@ static void LoadPairingCompatibilityConfiguration(void) {
 %hook IDSAccount
 
 - (BOOL)isServiceAvailable {
-    Log(@"Original IDSAccount isServiceAvailable called");
-    BOOL originalAvailability = %orig;
-    Log(@"Original service availability: %@", BoolString(originalAvailability));
-    return YES;
+    BOOL orig = %orig;
+    if (!orig && isWatchRelatedIDSAccount(self)) {
+        Log(@"IDSAccount isServiceAvailable: forcing YES for Watch-related service");
+        return YES;
+    }
+    return orig;
 }
 
 - (BOOL)isActive {
-    Log(@"Original IDSAccount isActive called");
-    BOOL originalActive = %orig;
-    Log(@"Original account active state: %@", BoolString(originalActive));
-    return YES;
+    BOOL orig = %orig;
+    if (!orig && isWatchRelatedIDSAccount(self)) {
+        Log(@"IDSAccount isActive: forcing YES for Watch-related service");
+        return YES;
+    }
+    return orig;
 }
 
 - (BOOL)isEnabled {
-    Log(@"Original IDSAccount isEnabled called");
-    BOOL originalEnabled = %orig;
-    Log(@"Original account enabled state: %@", BoolString(originalEnabled));
-    return YES;
+    BOOL orig = %orig;
+    if (!orig && isWatchRelatedIDSAccount(self)) {
+        Log(@"IDSAccount isEnabled: forcing YES for Watch-related service");
+        return YES;
+    }
+    return orig;
 }
 
 %end
